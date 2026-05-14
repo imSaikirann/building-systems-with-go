@@ -14,5 +14,13 @@ func main() {
 
 	defer conn.Close()
 
+	message := "One piece is the best anime ever!"
+
+	_, err = conn.Write([]byte(message))
+	if err != nil {
+		fmt.Println("Error sending message to server:", err)
+		return
+	}
+
 	fmt.Println("Connected to server:", conn.RemoteAddr())
 }
