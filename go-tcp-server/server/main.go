@@ -5,6 +5,31 @@ import (
 	"net"
 )
 
+func handleConnection(conn net.Conn) {
+
+	defer conn.Close()
+
+	fmt.Println("New client connected:", conn.RemoteAddr())
+
+	buffer := make([]byte, 1024)
+
+	for {
+
+		fmt.Println("Waiting for data from client...")
+		n, err := conn.Read(buffer)
+
+		if err != nil {
+			fmt.Println("client disconnected:", conn.RemoteAddr())
+			return
+		}
+		fmt.Println("new client connected:", conn.RemoteAddr())
+		fmt.Println("total bytes received:", n)
+		fmt.Println("raw buffer: ", buffer[:n])
+
+		fmt.Printf("Received data from client: %s\n", string(buffer[:n]))
+	}
+}
+
 func main() {
 
 	listener, err := net.Listen("tcp", ":8080")
@@ -23,22 +48,7 @@ func main() {
 			continue
 		}
 
-		buffer := make([]byte, 1024)
-
-		for {
-			n, err := conn.Read(buffer)
-
-			if err != nil {
-				fmt.Println("Error reading from client:", err)
-				return
-			}
-			fmt.Println("new client connected:", conn.RemoteAddr())
-			fmt.Println("total bytes received:", n)
-			fmt.Println("raw buffer: ", buffer[:n])
-
-			fmt.Printf("Received data from client: %s\n", string(buffer[:n]))
-		}
-
+		go handleConnection(conn)
 	}
 
 }
