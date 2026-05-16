@@ -3,52 +3,78 @@ package main
 import (
 	"fmt"
 	"net"
+	"sync"
+	"time"
 )
 
-func handleConnection(conn net.Conn) {
+var clients = make(map[net.Conn]bool)
+var mu sync.Mutex
 
+func broadcast(message string) {
+	mu.Lock()
+	defer mu.Unlock()
+	for client := range clients {
+
+		// intentionally slowing iteration
+		// to increase overlap between goroutines
+		time.Sleep(50 * time.Millisecond)
+
+		_, err := client.Write([]byte(message))
+		if err != nil {
+			fmt.Println("write error:", err)
+		}
+	}
+}
+
+func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	fmt.Println("New client connected:", conn.RemoteAddr())
+	// shared state write
+	mu.Lock()
+	clients[conn] = true
+	mu.Unlock()
+
+	fmt.Println("new client connected:", conn.RemoteAddr())
 
 	buffer := make([]byte, 1024)
 
 	for {
-
-		fmt.Println("Waiting for data from client...")
 		n, err := conn.Read(buffer)
-
 		if err != nil {
+
+			// shared state delete
+			mu.Lock()
+			delete(clients, conn)
+			mu.Unlock()
+
 			fmt.Println("client disconnected:", conn.RemoteAddr())
 			return
 		}
-		fmt.Println("new client connected:", conn.RemoteAddr())
-		fmt.Println("total bytes received:", n)
-		fmt.Println("raw buffer: ", buffer[:n])
 
-		fmt.Printf("Received data from client: %s\n", string(buffer[:n]))
+		message := fmt.Sprintf("[%s]: %s", conn.RemoteAddr(), string(buffer[:n]))
+
+		fmt.Print(message)
+
+		// shared state iteration
+		broadcast(message)
 	}
 }
 
 func main() {
-
 	listener, err := net.Listen("tcp", ":8080")
-
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Server is listening on port 8080...")
+	fmt.Println("server listening on :8080")
 
 	for {
 		conn, err := listener.Accept()
-
 		if err != nil {
-			fmt.Println("Error accepting connection:", err)
+			fmt.Println("accept error:", err)
 			continue
 		}
 
 		go handleConnection(conn)
 	}
-
 }

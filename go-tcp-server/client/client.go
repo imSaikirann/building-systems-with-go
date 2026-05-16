@@ -1,11 +1,23 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"net"
-	"os"
 )
+
+func readMessages(conn net.Conn) {
+	buffer := make([]byte, 1024)
+
+	for {
+		n, err := conn.Read(buffer)
+		if err != nil {
+			fmt.Println("server disconnected:", err)
+			return
+		}
+
+		fmt.Print(string(buffer[:n]))
+	}
+}
 
 func main() {
 	conn, err := net.Dial("tcp", "localhost:8080")
@@ -17,23 +29,15 @@ func main() {
 
 	fmt.Println("connected to server")
 
-	reader := bufio.NewReader(os.Stdin)
+	go readMessages(conn)
 
+	// intentionally spamming messages
+	// to create concurrent overlap
 	for {
-		fmt.Print("enter message: ")
-
-		message, err := reader.ReadString('\n')
+		_, err := conn.Write([]byte("spam message\n"))
 		if err != nil {
-			fmt.Println("error reading input:", err)
+			fmt.Println("write error:", err)
 			return
 		}
-
-		n, err := conn.Write([]byte(message))
-		if err != nil {
-			fmt.Println("error writing:", err)
-			return
-		}
-
-		fmt.Println("bytes sent:", n)
 	}
 }
